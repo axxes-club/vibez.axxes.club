@@ -1,6 +1,6 @@
 import "server-only"
 import { cache } from "react"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { and, desc, eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
@@ -19,7 +19,8 @@ export const getContext = cache(async (): Promise<AppContext | null> => {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return null
 
-  const [membership] = await db
+  const selected = (await cookies()).get("vibez_tenant_id")?.value
+  const memberships = await db
     .select({
       role: schema.tenantMemberships.role,
       id: schema.tenants.id,
@@ -30,7 +31,8 @@ export const getContext = cache(async (): Promise<AppContext | null> => {
     .innerJoin(schema.tenants, eq(schema.tenants.id, schema.tenantMemberships.tenantId))
     .where(and(eq(schema.tenantMemberships.userId, session.user.id)))
     .orderBy(desc(schema.tenantMemberships.isPrimary))
-    .limit(1)
+
+  const membership = memberships.find((m) => m.id === selected) ?? memberships[0]
 
   if (!membership) return null
   return {

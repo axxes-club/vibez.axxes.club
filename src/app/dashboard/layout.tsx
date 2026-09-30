@@ -3,6 +3,7 @@ import { BrandScope } from "@/components/brand"
 import { getCustomerBrand } from "@/lib/white-label"
 import { requireContext } from "@/lib/context"
 import { Sidebar } from "@/components/sidebar"
+import { OrganizationSwitcher } from "@/components/organization-switcher"
 import { SignOut } from "@/components/sign-out"
 import { Logo, LogoMark } from "@/components/logo"
 import { product } from "@/product.config"
@@ -25,11 +26,11 @@ async function AppLayout({ children }: { children: React.ReactNode }) {
         activeAlso={["/dashboard/events"]}
         footer={
           <div className="space-y-3 text-xs">
-            <div>
-              <p className="font-medium text-text">{ctx.tenant.name}</p>
+            <OrganizationSwitcher id={ctx.tenant.id} name={ctx.tenant.name} />
+            <div className="[[data-collapsed=true]_&]:lg:hidden">
               <p className="truncate text-muted">{ctx.user.email}</p>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between [[data-collapsed=true]_&]:lg:hidden">
               <a className="text-muted hover:text-text" href="https://handshake.axxes.club">← AXXES apps</a>
               <SignOut />
             </div>
