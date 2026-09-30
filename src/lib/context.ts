@@ -2,7 +2,7 @@ import "server-only"
 import { cache } from "react"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNull } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db, schema } from "@/lib/db"
 
@@ -29,7 +29,7 @@ export const getContext = cache(async (): Promise<AppContext | null> => {
     })
     .from(schema.tenantMemberships)
     .innerJoin(schema.tenants, eq(schema.tenants.id, schema.tenantMemberships.tenantId))
-    .where(and(eq(schema.tenantMemberships.userId, session.user.id)))
+    .where(and(eq(schema.tenantMemberships.userId, session.user.id), isNull(schema.tenantMemberships.deletedAt), isNull(schema.tenants.deletedAt), eq(schema.tenants.status, "active")))
     .orderBy(desc(schema.tenantMemberships.isPrimary))
 
   const membership = memberships.find((m) => m.id === selected) ?? memberships[0]
