@@ -1,5 +1,8 @@
-import { createUploadthing, type FileRouter } from "uploadthing/next"
-import { UploadThingError } from "uploadthing/server"
+import { auth } from "@/lib/auth";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as receiptSchema from "@/lib/db/schema";
+import { createUploadthing, type FileRouter } from "@/lib/gcs/router.mjs"
+import { UploadThingError } from "@/lib/gcs/router.mjs"
 import { and, count, eq, gte } from "drizzle-orm"
 import { db, schema } from "@/lib/db"
 import { eventBySlug, guestAccess } from "@/lib/vibez/access"
@@ -24,7 +27,10 @@ export const ourFileRouter = {
           access.reason === "closed" ? "This event's Vibez is closed" : access.reason === "banned" ? "You can't post to this event" : "Scan a Vibez code at the event first"
         )
       }
+      const organizerSession = access.organizer ? await auth.api.getSession({ headers: req.headers }) : null
       const guestId = access.guestId ?? `organizer`
+      const userId = organizerSession?.user.id
+      if (!userId && !access.guestId) throw new UploadThingError("Authenticated guest required")
 
       if (event.accessMode === "geofence" && !access.organizer && event.geoLat != null && event.geoLng != null) {
         const [lat, lng] = (header(req, "x-vibez-geo") ?? "").split(",").map(Number)
@@ -46,6 +52,7 @@ export const ourFileRouter = {
         : []
 
       return {
+        userId,
         eventId: event.id,
         tenantId: event.tenantId,
         eventName: event.name,
@@ -56,7 +63,8 @@ export const ourFileRouter = {
         caption: (header(req, "x-vibez-caption") ?? "").trim().slice(0, 140) || null,
       }
     })
-    .onUploadComplete(async ({ metadata, file }) => {
+    .onUploadComplete(async ({ metadata, file, transaction }) => {
+      const db = drizzle(transaction, { schema: receiptSchema });
       // Every photo also lands in the organizer's Folders library
       const [asset] = await db
         .insert(schema.assets)
