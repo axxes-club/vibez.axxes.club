@@ -1,5 +1,8 @@
-import { createUploadthing, type FileRouter } from "uploadthing/next"
-import { UploadThingError } from "uploadthing/server"
+import { auth } from "@/lib/auth";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as receiptSchema from "@/lib/db/schema";
+import { createUploadthing, type FileRouter } from "@/lib/gcs/router.mjs"
+import { UploadThingError } from "@/lib/gcs/router.mjs"
 import { and, count, eq, gte } from "drizzle-orm"
 import { db, schema } from "@/lib/db"
 import { eventBySlug, guestAccess } from "@/lib/vibez/access"
@@ -15,7 +18,7 @@ const header = (req: Request, name: string) => {
 export const ourFileRouter = {
   // One photo per upload, taken in the Vibez camera
   vibezPhoto: f({ image: { maxFileSize: "16MB", maxFileCount: 1 } })
-    .middleware(async ({ req }) => {
+    .middleware(async ({ req, phase }) => {
       const event = await eventBySlug(header(req, "x-vibez-event") ?? "")
       if (!event) throw new UploadThingError("No such event")
       const access = await guestAccess(event)
@@ -24,7 +27,10 @@ export const ourFileRouter = {
           access.reason === "closed" ? "This event's Vibez is closed" : access.reason === "banned" ? "You can't post to this event" : "Scan a Vibez code at the event first"
         )
       }
+      const organizerSession = access.organizer ? await auth.api.getSession({ headers: req.headers }) : null
       const guestId = access.guestId ?? `organizer`
+      const userId = organizerSession?.user.id
+      if (!userId && !access.guestId) throw new UploadThingError("Authenticated guest required")
 
       if (event.accessMode === "geofence" && !access.organizer && event.geoLat != null && event.geoLng != null) {
         const [lat, lng] = (header(req, "x-vibez-geo") ?? "").split(",").map(Number)
@@ -32,6 +38,7 @@ export const ourFileRouter = {
           throw new UploadThingError("You need to be at the event to post")
       }
 
+      if (phase === "init") {
       const p = schema.vibezPhotos
       const [[{ total }], [{ recent }]] = await Promise.all([
         db.select({ total: count() }).from(p).where(eq(p.eventId, event.id)),
@@ -40,12 +47,15 @@ export const ourFileRouter = {
       if (total >= event.maxPhotos) throw new UploadThingError("This event's feed is full")
       if (!access.organizer && recent >= event.perGuestPerHour) throw new UploadThingError("Easy there — you've hit this hour's photo limit")
 
+      }
+
       const spotToken = header(req, "x-vibez-spot")
       const [spot] = spotToken
         ? await db.select({ id: schema.vibezSpots.id }).from(schema.vibezSpots).where(and(eq(schema.vibezSpots.token, spotToken), eq(schema.vibezSpots.eventId, event.id)))
         : []
 
       return {
+        userId,
         eventId: event.id,
         tenantId: event.tenantId,
         eventName: event.name,
@@ -56,7 +66,8 @@ export const ourFileRouter = {
         caption: (header(req, "x-vibez-caption") ?? "").trim().slice(0, 140) || null,
       }
     })
-    .onUploadComplete(async ({ metadata, file }) => {
+    .onUploadComplete(async ({ metadata, file, transaction }) => {
+      const db = drizzle(transaction, { schema: receiptSchema });
       // Every photo also lands in the organizer's Folders library
       const [asset] = await db
         .insert(schema.assets)
