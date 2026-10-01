@@ -18,7 +18,7 @@ const header = (req: Request, name: string) => {
 export const ourFileRouter = {
   // One photo per upload, taken in the Vibez camera
   vibezPhoto: f({ image: { maxFileSize: "16MB", maxFileCount: 1 } })
-    .middleware(async ({ req }) => {
+    .middleware(async ({ req, phase }) => {
       const event = await eventBySlug(header(req, "x-vibez-event") ?? "")
       if (!event) throw new UploadThingError("No such event")
       const access = await guestAccess(event)
@@ -38,6 +38,7 @@ export const ourFileRouter = {
           throw new UploadThingError("You need to be at the event to post")
       }
 
+      if (phase === "init") {
       const p = schema.vibezPhotos
       const [[{ total }], [{ recent }]] = await Promise.all([
         db.select({ total: count() }).from(p).where(eq(p.eventId, event.id)),
@@ -45,6 +46,8 @@ export const ourFileRouter = {
       ])
       if (total >= event.maxPhotos) throw new UploadThingError("This event's feed is full")
       if (!access.organizer && recent >= event.perGuestPerHour) throw new UploadThingError("Easy there — you've hit this hour's photo limit")
+
+      }
 
       const spotToken = header(req, "x-vibez-spot")
       const [spot] = spotToken
