@@ -1,3 +1,4 @@
+import { PulseTracker } from "@/components/pulse-tracker"
 import type { Metadata } from "next"
 import { BrandScope } from "@/components/brand"
 import { getCustomerBrand } from "@/lib/white-label"
@@ -19,6 +20,7 @@ async function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="lg:flex">
+      <PulseTracker appKey="vibez" tenantId={ctx.tenant.id} userId={ctx.userId}/>
       <Sidebar
         items={items}
         logo={<Logo />}
