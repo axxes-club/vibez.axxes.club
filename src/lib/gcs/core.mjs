@@ -210,12 +210,14 @@ export class Adapter {
         expiresAt: this.now() + 15 * 60 * 1000,
       };
       await this.registry.create(record);
-      const policy = await this.store.signPost(
-        staging,
-        record.descriptor,
-        objectMetadata,
-        record.expiresAt,
-      );
+      let policy;
+      try {
+        policy = await this.store.signPost(staging, record.descriptor, objectMetadata, record.expiresAt);
+      } catch(error) {
+        // An unusable permit must not hold quota until the upload deadline.
+        await this.registry.releaseReservation?.(id, owner);
+        throw error;
+      }
       results.push({ uploadId: id, policy });
     }
     return results;

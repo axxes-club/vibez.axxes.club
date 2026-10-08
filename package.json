@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:storage": "node --test scripts/gcs/*.check.mjs"
+    "test:storage": "node --test scripts/gcs/*.check.mjs",
+    "test:security": "node --test tests/security*.test.*"
   },
   "dependencies": {
     "@google-cloud/storage": "7.19.0",
@@ -24,6 +25,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "8.23.1",

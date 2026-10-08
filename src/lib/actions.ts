@@ -1,5 +1,9 @@
 "use server"
 
+import { admitWrite } from "@/lib/security/admission"
+
+import { assertWriteRole } from "@/lib/security/authorization"
+
 import { eq } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { revalidatePath } from "next/cache"
@@ -30,6 +34,8 @@ function resourceOrThrow(key: string) {
 
 export async function createRecord(key: string, _prev: FormState, form: FormData): Promise<FormState> {
   const ctx = await requireContext()
+  assertWriteRole(ctx)
+  await admitWrite(ctx)
   const resource = resourceOrThrow(key)
   let id: string
   try {
@@ -49,6 +55,8 @@ export async function createRecord(key: string, _prev: FormState, form: FormData
 
 export async function updateRecord(key: string, id: string, _prev: FormState, form: FormData): Promise<FormState> {
   const ctx = await requireContext()
+  assertWriteRole(ctx)
+  await admitWrite(ctx)
   const resource = resourceOrThrow(key)
   if (!(await getRow(resource, ctx.tenant.id, id))) return { error: "Not found" }
   try {
@@ -70,6 +78,8 @@ export async function updateRecord(key: string, id: string, _prev: FormState, fo
 
 export async function deleteRecord(key: string, id: string) {
   const ctx = await requireContext()
+  assertWriteRole(ctx)
+  await admitWrite(ctx)
   const resource = resourceOrThrow(key)
   const cols = columnsOf(resource.table)
   const where = scope(resource.table, ctx.tenant.id, eq(cols.id as unknown as PgColumn, id))
