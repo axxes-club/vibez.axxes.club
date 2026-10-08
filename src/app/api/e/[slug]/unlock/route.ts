@@ -1,4 +1,4 @@
-import {admitRequest,consumeAdmission} from "@/lib/security/admission"
+import {admitRequest,consumeAdmissions} from "@/lib/security/admission"
 import { NextResponse, type NextRequest } from "next/server"
 import { and, eq } from "drizzle-orm"
 import { db, schema } from "@/lib/db"
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   try { await admitRequest(req, "event") } catch(error) { return NextResponse.json({error:"Request limit exceeded"},{status:(error as {status?:number}).status===429?429:503}) }
   const event = await eventBySlug((await params).slug)
   if (!event) return NextResponse.json({ error: "No such event" }, { status: 404 })
-  try { await consumeAdmission("event:"+event.id, 120); await consumeAdmission("tenant:event:"+event.tenantId, 600) } catch(error) { return NextResponse.json({error:"Request limit exceeded"},{status:(error as {status?:number}).status===429?429:503}) }
+  try { await consumeAdmissions([["tenant:event:"+event.tenantId,600],["event:"+event.id,120]]) } catch(error) { return NextResponse.json({error:"Request limit exceeded"},{status:(error as {status?:number}).status===429?429:503}) }
   const body = await req.json().catch(() => ({}))
 
   if (event.accessMode !== "link") {

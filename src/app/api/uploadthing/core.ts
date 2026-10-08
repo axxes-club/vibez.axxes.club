@@ -1,4 +1,4 @@
-import {consumeAdmission} from "@/lib/security/admission"
+import {consumeAdmissions} from "@/lib/security/admission"
 import { auth } from "@/lib/auth";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as receiptSchema from "@/lib/db/schema";
@@ -40,8 +40,7 @@ export const ourFileRouter = {
       }
 
       if (phase === "init") {
-      await consumeAdmission("global:uploads", 300);
-      await consumeAdmission("tenant:uploads:"+event.tenantId,120);
+      await consumeAdmissions([["global:uploads",300],["tenant:uploads:"+event.tenantId,120]]);
       const p = schema.vibezPhotos
       const [[{ total }], [{ recent }]] = await Promise.all([
         db.select({ total: count() }).from(p).where(eq(p.eventId, event.id)),
