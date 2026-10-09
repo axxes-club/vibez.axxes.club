@@ -1,5 +1,9 @@
 "use server"
 
+import { admitWrite } from "@/lib/security/admission"
+
+import { assertWriteRole } from "@/lib/security/authorization"
+
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { and, eq } from "drizzle-orm"
@@ -10,6 +14,8 @@ import { newSpotToken } from "@/lib/vibez/tokens"
 
 async function ownedEvent(eventId: string) {
   const ctx = await requireContext()
+  assertWriteRole(ctx, "manage")
+  await admitWrite(ctx)
   const [event] = await db
     .select()
     .from(schema.vibezEvents)
@@ -28,6 +34,8 @@ function slugify(name: string) {
 
 export async function createEvent(form: FormData) {
   const ctx = await requireContext()
+  assertWriteRole(ctx, "manage")
+  await admitWrite(ctx)
   const name = text(form.get("name"), 120)
   if (!name) throw new Error("Give your event a name")
   const [event] = await db

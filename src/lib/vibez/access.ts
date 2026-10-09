@@ -26,7 +26,7 @@ export async function isOrganizer(event: VibezEvent) {
         isNull(schema.tenantMemberships.deletedAt)
       )
     )
-  return !!m
+  return !!m && ["owner", "admin", "manager"].includes(m.role)
 }
 
 export type GuestAccess = {
